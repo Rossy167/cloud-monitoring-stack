@@ -38,9 +38,8 @@ variable "ssh_pub_key_path" {
 }
 
 variable "ssh_source_ranges" {
-  description = "CIDR ranges allowed to SSH in. Defaults to open — override with your own IP/32 once you know it, e.g. [\"203.0.113.4/32\"]."
+  description = "CIDR ranges allowed to SSH in. Required — no default, to force a conscious choice instead of silently allowing the world. Set to your own IP/32, e.g. [\"203.0.113.4/32\"]."
   type        = list(string)
-  default     = ["0.0.0.0/0"]
 }
 
 variable "grafana_admin_password" {
