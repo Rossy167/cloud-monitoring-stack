@@ -1,0 +1,29 @@
+# Copy this file to terraform.tfvars and fill in real values:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored — never commit it, it holds your Grafana
+# admin password. Only the variables below (no default in variables.tf) are
+# required; everything else has a sane default there.
+
+# GCP project ID to deploy into.
+project_id = "your-gcp-project-id"
+
+# Username to create on the VM and use for SSH.
+ssh_user = "your-username"
+
+# Path to your SSH public key (generate with `ssh-keygen -t ed25519` if needed).
+ssh_pub_key_path = "~/.ssh/id_ed25519.pub"
+
+# CIDR ranges allowed to SSH in — no default on purpose, to force a
+# conscious choice instead of silently allowing the world in. Use your own
+# public IP/32, e.g. find it with `curl -s ifconfig.me`.
+ssh_source_ranges = ["203.0.113.4/32"]
+
+# Grafana admin password (username is always "admin"). Pick something you
+# haven't used elsewhere; this ends up in Terraform state.
+grafana_admin_password = "pick-something-here"
+
+# Optional: webhook URL Alertmanager sends notifications to (Slack incoming
+# webhook, PagerDuty, custom endpoint, etc). Leave unset/commented to run
+# with a no-op receiver that just swallows alerts instead of failing to start.
+# alertmanager_webhook_url = "https://hooks.example.com/services/xxx"

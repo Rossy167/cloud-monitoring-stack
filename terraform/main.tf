@@ -1,3 +1,21 @@
+# --- APIs ---
+# On a fresh GCP project, compute.googleapis.com isn't enabled yet, and the
+# very first google_compute_* resource Terraform tries to create will fail
+# with a 403. Enabling it here (instead of requiring a manual
+# `gcloud services enable` step first) means `terraform apply` works
+# unattended on a brand-new project, as long as the identity running apply
+# has serviceusage.services.enable (Owner/Editor roles include it).
+#
+# disable_on_destroy = false: this is a project-level, potentially shared
+# API — `terraform destroy` on this stack should not disable it for the
+# whole project.
+
+resource "google_project_service" "compute" {
+  project            = var.project_id
+  service            = "compute.googleapis.com"
+  disable_on_destroy = false
+}
+
 # --- Networking ---
 # A dedicated VPC + subnet rather than the GCP default network, so the
 # network topology here is explicit and intentional rather than implicit.
@@ -5,6 +23,8 @@
 resource "google_compute_network" "monitoring_vpc" {
   name                    = "monitoring-vpc"
   auto_create_subnetworks = false
+
+  depends_on = [google_project_service.compute]
 }
 
 resource "google_compute_subnetwork" "monitoring_subnet" {
@@ -12,6 +32,8 @@ resource "google_compute_subnetwork" "monitoring_subnet" {
   ip_cidr_range = "10.10.0.0/24"
   region        = var.region
   network       = google_compute_network.monitoring_vpc.id
+
+  depends_on = [google_project_service.compute]
 }
 
 resource "google_compute_firewall" "allow_ssh" {
@@ -25,6 +47,8 @@ resource "google_compute_firewall" "allow_ssh" {
 
   source_ranges = var.ssh_source_ranges
   target_tags   = ["monitoring-vm"]
+
+  depends_on = [google_project_service.compute]
 }
 
 resource "google_compute_firewall" "allow_http_https" {
@@ -41,6 +65,8 @@ resource "google_compute_firewall" "allow_http_https" {
   # reachable from the internet to validate domain ownership.
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["monitoring-vm"]
+
+  depends_on = [google_project_service.compute]
 }
 
 # --- Static IP ---
@@ -50,6 +76,8 @@ resource "google_compute_firewall" "allow_http_https" {
 resource "google_compute_address" "monitoring_ip" {
   name   = "monitoring-static-ip"
   region = var.region
+
+  depends_on = [google_project_service.compute]
 }
 
 # --- Compute instance ---
@@ -59,6 +87,8 @@ resource "google_compute_instance" "monitoring_vm" {
   machine_type = var.machine_type
   zone         = var.zone
   tags         = ["monitoring-vm"]
+
+  depends_on = [google_project_service.compute]
 
   boot_disk {
     initialize_params {
@@ -106,5 +136,6 @@ resource "google_compute_instance" "monitoring_vm" {
     grafana_dashboard_provisioning_b64 = base64encode(file("${path.module}/../monitoring/grafana/provisioning/dashboards/dashboard.yml"))
     grafana_dashboard_json_b64         = base64encode(file("${path.module}/../monitoring/grafana/dashboards/infra-overview.json"))
     fail2ban_script_b64                = base64encode(file("${path.module}/../monitoring/scripts/fail2ban-metrics.sh"))
+    fail2ban_jail_local_b64            = base64encode(file("${path.module}/../monitoring/fail2ban/jail.local"))
   })
 }

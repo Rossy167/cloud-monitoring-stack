@@ -53,6 +53,8 @@ flowchart TB
 - `gcloud` CLI authenticated (`gcloud auth application-default login`)
 - An SSH key pair (`ssh-keygen -t ed25519` if you don't have one)
 
+Terraform enables the Compute Engine API (`compute.googleapis.com`) itself as part of `apply` — you do not need to run `gcloud services enable compute.googleapis.com` manually on a fresh project. For that to succeed, the identity running `apply` needs the `serviceusage.services.enable` IAM permission, which is included in the Owner and Editor roles.
+
 ## Repo layout
 
 ```
@@ -66,13 +68,9 @@ flowchart TB
 
 ```bash
 cd terraform
-cat > terraform.tfvars <<EOF
-project_id              = "your-gcp-project-id"
-ssh_user                = "your-username"
-ssh_pub_key_path        = "~/.ssh/id_ed25519.pub"
-grafana_admin_password  = "pick-something-here"
-ssh_source_ranges       = ["203.0.113.4/32"]
-EOF
+cp terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars: fill in project_id, ssh_user, ssh_pub_key_path,
+# ssh_source_ranges, grafana_admin_password (see inline comments in the file)
 
 terraform init
 terraform apply
@@ -83,6 +81,15 @@ terraform apply
 Note: `terraform init` above needs the `-backend-config` flags described in [Remote state](#remote-state) below — a bare `terraform init` will prompt for them interactively.
 
 Once `apply` finishes, give the VM 2–3 minutes to finish its first-boot setup (installing Docker, pulling images, starting the stack), then open the `grafana_url` from the Terraform output. Log in with `admin` / whatever you set as `grafana_admin_password` — the "Infrastructure Overview" dashboard is already provisioned and loaded.
+
+## Verifying / troubleshooting a first apply
+
+If `grafana_url` isn't up after a few minutes:
+
+1. SSH in with the `ssh_command` Terraform output (`terraform output ssh_command`).
+2. Run `sudo cloud-init status` — should say `status: done`. If it says `running`, wait longer; if `error`, continue below.
+3. If cloud-init failed, check `sudo journalctl -u google-startup-scripts.service --no-pager | tail -100` for the failing step.
+4. Check the stack itself: `cd /opt/monitoring && sudo docker compose ps` to see container status, then `sudo docker compose logs <service>` (e.g. `caddy`, `grafana`, `prometheus`) for any container that isn't `Up`/healthy.
 
 ## Remote state
 

@@ -59,9 +59,17 @@ write_files:
     permissions: '0755'
     content: ${fail2ban_script_b64}
 
+  - path: /etc/fail2ban/jail.local
+    encoding: b64
+    permissions: '0644'
+    content: ${fail2ban_jail_local_b64}
+
 runcmd:
   - mkdir -p /var/lib/node_exporter/textfile_collector
   - systemctl enable fail2ban
+  # jail.local (with [sshd] enabled) is already written by this point —
+  # write_files always runs before runcmd — so this restart is what makes
+  # the sshd jail actually active on first boot instead of staying disabled.
   - systemctl restart fail2ban
   - curl -fsSL https://get.docker.com | sh
   - usermod -aG docker ${ssh_user}
