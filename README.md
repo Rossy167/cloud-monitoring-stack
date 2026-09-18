@@ -1,6 +1,6 @@
 # cloud-monitoring-stack
 
-A self-hosted observability stack on GCP, provisioned entirely by Terraform — one `terraform apply` brings up a VM, networking, and a full Prometheus + Grafana stack with no manual SSH steps. Free tier throughout: `e2-micro` compute, a single static IP, and no domain purchase required (see the HTTPS note below).
+A self-hosted observability stack on GCP, provisioned entirely by Terraform — one `terraform apply` brings up a VM, networking, and a full Prometheus + Grafana stack with no manual SSH steps. Free tier throughout: `e2-micro` compute, a single static IP, and no domain purchase required (see the HTTPS note below). One exception: the GCS bucket used for remote Terraform state carries a small recurring cost, typically cents/month at this scale (see [Remote state](#remote-state)).
 
 ## What it watches
 
@@ -77,7 +77,22 @@ terraform apply
 
 `terraform.tfvars` is gitignored — never commit it, it holds your Grafana password.
 
+Note: `terraform init` above needs the `-backend-config` flags described in [Remote state](#remote-state) below — a bare `terraform init` will prompt for them interactively.
+
 Once `apply` finishes, give the VM 2–3 minutes to finish its first-boot setup (installing Docker, pulling images, starting the stack), then open the `grafana_url` from the Terraform output. Log in with `admin` / whatever you set as `grafana_admin_password` — the "Infrastructure Overview" dashboard is already provisioned and loaded.
+
+## Remote state
+
+Terraform state for this project is stored remotely in a GCS bucket rather than on your local disk. This is safer for anything you intend to keep running (no risk of losing `terraform.tfstate` locally) and is a prerequisite for ever collaborating on this repo.
+
+The backend configuration in `terraform/versions.tf` is intentionally partial (`backend "gcs" {}`, no bucket name) — the bucket name is account-specific and should never be hardcoded/committed to this repo.
+
+One-time setup, before your first `terraform init`:
+
+1. Manually create a GCS bucket for state (this is deliberately not Terraform code — a `google_storage_bucket` resource can't create the bucket that Terraform needs in order to store the state describing that resource). Do this once, either via the GCP Console (Cloud Storage, Create bucket) or with the storage bucket creation command of your preferred CLI, choosing a globally-unique name. Enabling versioning on the bucket is recommended so you can recover an earlier state file if needed.
+2. Initialize Terraform with your bucket name supplied at init time, instead of a bare `terraform init`: run Terraform's init command with `-backend-config="bucket=YOUR_UNIQUE_BUCKET_NAME"` and `-backend-config="prefix=terraform/state"`.
+
+This only needs to be done once (or again if you ever re-run init with a different bucket). This GCS bucket is the one piece of this project's cost that falls outside GCP's Always Free tier — typically a few cents a month for a state file this small.
 
 ## On HTTPS without a domain
 

@@ -7,6 +7,12 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  # Partial backend configuration on purpose: the bucket name/prefix are
+  # account-specific and must not be hardcoded/committed here. Supply them
+  # at `terraform init` time with -backend-config flags. See README.md for
+  # the one-time setup steps.
+  backend "gcs" {}
 }
 
 provider "google" {
