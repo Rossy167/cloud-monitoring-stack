@@ -113,6 +113,28 @@
         { "refId": "B", "expr": "fail2ban_banned_total", "legendFormat": "total ever banned" }
       ],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+
+    { "id": 500, "type": "row", "title": "Capacity", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 }, "collapsed": false, "panels": [] },
+    {
+      "id": 11, "type": "timeseries", "title": "Root Filesystem Usage — Trend (%)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)", "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] }
+    },
+    {
+      "id": 12, "type": "stat", "title": "Prometheus TSDB Size on Disk",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(prometheus_tsdb_storage_blocks_bytes)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "thresholds": { "mode": "absolute", "steps": [
+        { "color": "green", "value": null }, { "color": "orange", "value": 10737418240 }, { "color": "red", "value": 21474836480 }
+      ] } }, "overrides": [] }
     }
   ]
 }
