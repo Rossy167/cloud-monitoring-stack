@@ -6,6 +6,8 @@
 *.tfstate.*
 crash.log
 crash.*.log
+tfplan
+*.tfplan
 
 # macOS
 .DS_Store

@@ -107,35 +107,47 @@ resource "google_compute_instance" "monitoring_vm" {
     }
   }
 
+  # NOTE: this must be metadata["user-data"], not metadata_startup_script.
+  # metadata_startup_script sets GCP's "startup-script" key, which is run
+  # verbatim as a bash script by google-startup-scripts.service — it is NOT
+  # parsed by cloud-init. Our cloud-init.yaml.tftpl is a #cloud-config YAML
+  # document (packages/write_files/runcmd), which only cloud-init's own
+  # datasource understands, and it only reads that from the "user-data"
+  # metadata key. Putting cloud-config content in metadata_startup_script
+  # silently fails: bash chokes on nearly every YAML line as "command not
+  # found" and the script dies partway through with a syntax error, so
+  # nothing in write_files/runcmd (docker install, the whole stack) ever
+  # runs, even though `cloud-init status` still reports "done" (it ran its
+  # own default modules fine — it just never saw our user-data at all).
   metadata = {
     ssh-keys = "${var.ssh_user}:${file(var.ssh_pub_key_path)}"
+
+    user-data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+      ssh_user = var.ssh_user
+
+      docker_compose_b64 = base64encode(templatefile("${path.module}/../monitoring/docker-compose.yml.tftpl", {
+        grafana_admin_password = var.grafana_admin_password
+      }))
+
+      prometheus_b64 = base64encode(templatefile("${path.module}/../monitoring/prometheus/prometheus.yml.tftpl", {
+        static_ip = google_compute_address.monitoring_ip.address
+      }))
+      prometheus_rules_b64 = base64encode(file("${path.module}/../monitoring/prometheus/rules/alerts.yml"))
+      blackbox_b64         = base64encode(file("${path.module}/../monitoring/blackbox/blackbox.yml"))
+
+      alertmanager_b64 = base64encode(templatefile("${path.module}/../monitoring/alertmanager/alertmanager.yml.tftpl", {
+        alertmanager_webhook_url = var.alertmanager_webhook_url
+      }))
+
+      caddyfile_b64 = base64encode(templatefile("${path.module}/../monitoring/caddy/Caddyfile.tftpl", {
+        static_ip = google_compute_address.monitoring_ip.address
+      }))
+
+      grafana_datasource_b64             = base64encode(file("${path.module}/../monitoring/grafana/provisioning/datasources/datasource.yml"))
+      grafana_dashboard_provisioning_b64 = base64encode(file("${path.module}/../monitoring/grafana/provisioning/dashboards/dashboard.yml"))
+      grafana_dashboard_json_b64         = base64encode(file("${path.module}/../monitoring/grafana/dashboards/infra-overview.json"))
+      fail2ban_script_b64                = base64encode(file("${path.module}/../monitoring/scripts/fail2ban-metrics.sh"))
+      fail2ban_jail_local_b64            = base64encode(file("${path.module}/../monitoring/fail2ban/jail.local"))
+    })
   }
-
-  metadata_startup_script = templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    ssh_user = var.ssh_user
-
-    docker_compose_b64 = base64encode(templatefile("${path.module}/../monitoring/docker-compose.yml.tftpl", {
-      grafana_admin_password = var.grafana_admin_password
-    }))
-
-    prometheus_b64 = base64encode(templatefile("${path.module}/../monitoring/prometheus/prometheus.yml.tftpl", {
-      static_ip = google_compute_address.monitoring_ip.address
-    }))
-    prometheus_rules_b64 = base64encode(file("${path.module}/../monitoring/prometheus/rules/alerts.yml"))
-    blackbox_b64         = base64encode(file("${path.module}/../monitoring/blackbox/blackbox.yml"))
-
-    alertmanager_b64 = base64encode(templatefile("${path.module}/../monitoring/alertmanager/alertmanager.yml.tftpl", {
-      alertmanager_webhook_url = var.alertmanager_webhook_url
-    }))
-
-    caddyfile_b64 = base64encode(templatefile("${path.module}/../monitoring/caddy/Caddyfile.tftpl", {
-      static_ip = google_compute_address.monitoring_ip.address
-    }))
-
-    grafana_datasource_b64             = base64encode(file("${path.module}/../monitoring/grafana/provisioning/datasources/datasource.yml"))
-    grafana_dashboard_provisioning_b64 = base64encode(file("${path.module}/../monitoring/grafana/provisioning/dashboards/dashboard.yml"))
-    grafana_dashboard_json_b64         = base64encode(file("${path.module}/../monitoring/grafana/dashboards/infra-overview.json"))
-    fail2ban_script_b64                = base64encode(file("${path.module}/../monitoring/scripts/fail2ban-metrics.sh"))
-    fail2ban_jail_local_b64            = base64encode(file("${path.module}/../monitoring/fail2ban/jail.local"))
-  })
 }
