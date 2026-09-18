@@ -28,6 +28,7 @@ scrape_configs:
     static_configs:
       - targets:
           - https://rossy167.github.io
+          - https://${static_ip}.sslip.io
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
