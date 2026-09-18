@@ -1,0 +1,10 @@
+// Enables the periodic systemd timers (apt-daily.timer / apt-daily-upgrade.timer)
+// that unattended-upgrades relies on: refresh the package list once a day, then
+// run unattended-upgrade (governed by 50unattended-upgrades, see that file for
+// the actual security-only / no-reboot policy).
+//
+// Written to /etc/apt/apt.conf.d/20auto-upgrades by cloud-init; delivered via
+// terraform/main.tf's base64/templatefile plumbing, same pattern as
+// monitoring/fail2ban/jail.local.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";

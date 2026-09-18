@@ -148,6 +148,10 @@ resource "google_compute_instance" "monitoring_vm" {
       grafana_dashboard_json_b64         = base64encode(file("${path.module}/../monitoring/grafana/dashboards/infra-overview.json"))
       fail2ban_script_b64                = base64encode(file("${path.module}/../monitoring/scripts/fail2ban-metrics.sh"))
       fail2ban_jail_local_b64            = base64encode(file("${path.module}/../monitoring/fail2ban/jail.local"))
+
+      reboot_required_script_b64     = base64encode(file("${path.module}/../monitoring/scripts/reboot-required-metric.sh"))
+      unattended_upgrades_auto_b64   = base64encode(file("${path.module}/../monitoring/unattended-upgrades/20auto-upgrades"))
+      unattended_upgrades_config_b64 = base64encode(file("${path.module}/../monitoring/unattended-upgrades/50unattended-upgrades"))
     })
   }
 }
