@@ -138,6 +138,16 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${grafana_admin_password}
       - GF_USERS_ALLOW_SIGN_UP=false
+      # Public Dashboards has been GA and enabled-by-default since Grafana
+      # 10.3 (this stack runs 11.2.0, well past that), so this toggle is
+      # belt-and-suspenders rather than strictly required. It only unlocks
+      # the *capability* to mark an individual dashboard public (read-only,
+      # no login) via Share > Public dashboard in the UI, one dashboard at a
+      # time. It does NOT make Grafana itself anonymously accessible — that
+      # would be GF_AUTH_ANONYMOUS_ENABLED, which is intentionally not set
+      # here. No dashboard is public until an admin explicitly marks one
+      # public via Grafana's UI/API after deploy.
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

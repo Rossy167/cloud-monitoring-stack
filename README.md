@@ -114,6 +114,7 @@ This uses [sslip.io](https://sslip.io) — a free service that resolves `<any-ip
 - Only ports 80, 443, and 22 are open at the network level; everything else (Prometheus, the exporters) is internal-only, reachable by other containers but not the public internet.
 - fail2ban runs on the host and bans repeated failed SSH logins automatically — its ban count is what feeds the dashboard's security panel.
 - A 2GB swapfile (low `vm.swappiness`) is provisioned on first boot as an emergency cushion against the OOM killer on this memory-constrained `e2-micro`, not as routine paging.
+- Grafana's Public Dashboards feature is enabled (`GF_FEATURE_TOGGLES_ENABLE=publicDashboards` in `monitoring/docker-compose.yml.tftpl`), which allows one specific dashboard to be marked publicly viewable, read-only, with no login. This is distinct from — and does not enable — Grafana's anonymous-access feature (`GF_AUTH_ANONYMOUS_ENABLED`), which would open the whole instance; that is deliberately left unset. No dashboard is public by default — marking one public is a manual, post-deploy step done via Grafana's UI (Share > Public dashboard) or its API, not something Terraform manages.
 
 ## Teardown
 
