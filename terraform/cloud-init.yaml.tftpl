@@ -1,0 +1,61 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - fail2ban
+  - ca-certificates
+  - curl
+  - gnupg
+
+write_files:
+  - path: /opt/monitoring/docker-compose.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${docker_compose_b64}
+
+  - path: /opt/monitoring/prometheus/prometheus.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${prometheus_b64}
+
+  - path: /opt/monitoring/blackbox/blackbox.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${blackbox_b64}
+
+  - path: /opt/monitoring/caddy/Caddyfile
+    encoding: b64
+    permissions: '0644'
+    content: ${caddyfile_b64}
+
+  - path: /opt/monitoring/grafana/provisioning/datasources/datasource.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${grafana_datasource_b64}
+
+  - path: /opt/monitoring/grafana/provisioning/dashboards/dashboard.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${grafana_dashboard_provisioning_b64}
+
+  - path: /opt/monitoring/grafana/dashboards/infra-overview.json
+    encoding: b64
+    permissions: '0644'
+    content: ${grafana_dashboard_json_b64}
+
+  - path: /opt/monitoring/scripts/fail2ban-metrics.sh
+    encoding: b64
+    permissions: '0755'
+    content: ${fail2ban_script_b64}
+
+runcmd:
+  - mkdir -p /var/lib/node_exporter/textfile_collector
+  - systemctl enable fail2ban
+  - systemctl restart fail2ban
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker ${ssh_user}
+  - (crontab -l 2>/dev/null; echo "* * * * * /opt/monitoring/scripts/fail2ban-metrics.sh") | crontab -
+  - /opt/monitoring/scripts/fail2ban-metrics.sh
+  - sleep 5
+  - cd /opt/monitoring && docker compose up -d
