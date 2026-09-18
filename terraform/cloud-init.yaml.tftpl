@@ -65,6 +65,23 @@ write_files:
     content: ${fail2ban_jail_local_b64}
 
 runcmd:
+  # 2GB swapfile as an OOM safety net: containers' mem_limits alone sum to ~816Mi
+  # on this 1024Mi e2-micro, leaving little headroom for host OS/daemon overhead.
+  # Swap doesn't fix sustained over-commitment, but gives the kernel room to
+  # reclaim/page under a transient burst instead of the OOM killer taking out a
+  # host-critical process. Guarded so a re-triggered runcmd is a no-op.
+  # low vm.swappiness keeps swap as an emergency cushion, not routine paging,
+  # since actually swapping is slow on this class of VM.
+  - |
+    if [ ! -f /swapfile ]; then
+      fallocate -l 2G /swapfile
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    fi
+  - echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
+  - sysctl -p /etc/sysctl.d/99-swappiness.conf
   - mkdir -p /var/lib/node_exporter/textfile_collector
   - systemctl enable fail2ban
   # jail.local (with [sshd] enabled) is already written by this point —

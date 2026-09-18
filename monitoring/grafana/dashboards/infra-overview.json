@@ -33,7 +33,7 @@
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 9 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)" }
+        { "refId": "A", "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/\", fstype!=\"rootfs\"}) * 100)" }
       ],
       "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [
         { "color": "green", "value": null }, { "color": "orange", "value": 70 }, { "color": "red", "value": 90 }
@@ -121,7 +121,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100)", "legendFormat": "{{instance}}" }
+        { "refId": "A", "expr": "100 - ((node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/\", fstype!=\"rootfs\"}) * 100)", "legendFormat": "{{instance}}" }
       ],
       "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] }
     },
@@ -135,6 +135,24 @@
       "fieldConfig": { "defaults": { "unit": "bytes", "thresholds": { "mode": "absolute", "steps": [
         { "color": "green", "value": null }, { "color": "orange", "value": 10737418240 }, { "color": "red", "value": 21474836480 }
       ] } }, "overrides": [] }
+    },
+
+    { "id": 600, "type": "row", "title": "Alerts", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 }, "collapsed": false, "panels": [] },
+    {
+      "id": 13, "type": "table", "title": "Currently Firing Alerts",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 50 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": {
+          "excludeByName": { "Time": true, "__name__": true, "alertstate": true, "Value": true },
+          "indexByName": {},
+          "renameByName": {}
+        } }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
     }
   ]
 }
