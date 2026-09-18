@@ -1,0 +1,18 @@
+# Ubuntu ships fail2ban with all jails disabled by default. Without this
+# file, `fail2ban-client status sshd` errors out ("Sorry but the jail
+# 'sshd' does not exist"), and fail2ban-metrics.sh silently falls back to
+# reporting 0 bans forever — the dashboard's security panel looks plausible
+# but is never actually measuring anything.
+#
+# Written to /etc/fail2ban/jail.local by cloud-init; fail2ban reads
+# jail.local as an override on top of jail.conf.
+
+[sshd]
+enabled  = true
+port     = ssh
+filter   = sshd
+logpath  = /var/log/auth.log
+backend  = systemd
+maxretry = 5
+findtime = 600
+bantime  = 3600
