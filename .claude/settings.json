@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(git:*)",
+      "Bash(terraform fmt:*)",
+      "Bash(terraform init:*)",
+      "Bash(terraform validate:*)",
+      "Bash(docker compose config:*)",
+      "Bash(python3:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(diff:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Edit(terraform/**)",
+      "Edit(monitoring/**)",
+      "Edit(.github/**)",
+      "Edit(README.md)",
+      "Edit(NEXT_STEPS.md)",
+      "Edit(DEPLOY_GUIDE.md)",
+      "Write(terraform/**)",
+      "Write(monitoring/**)",
+      "Write(.github/**)",
+      "Write(README.md)",
+      "Write(NEXT_STEPS.md)",
+      "Write(DEPLOY_GUIDE.md)"
+    ],
+    "deny": [
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(terraform plan:*)",
+      "Bash(gcloud*)",
+      "Bash(sudo*)",
+      "Bash(rm -rf*)",
+      "Bash(git push:*)",
+      "Bash(git remote:*)"
+    ]
+  }
+}
