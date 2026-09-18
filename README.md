@@ -115,6 +115,7 @@ This uses [sslip.io](https://sslip.io) — a free service that resolves `<any-ip
 - fail2ban runs on the host and bans repeated failed SSH logins automatically — its ban count is what feeds the dashboard's security panel.
 - A 2GB swapfile (low `vm.swappiness`) is provisioned on first boot as an emergency cushion against the OOM killer on this memory-constrained `e2-micro`, not as routine paging.
 - Grafana's Public Dashboards feature is enabled (`GF_FEATURE_TOGGLES_ENABLE=publicDashboards` in `monitoring/docker-compose.yml.tftpl`), which allows one specific dashboard to be marked publicly viewable, read-only, with no login. This is distinct from — and does not enable — Grafana's anonymous-access feature (`GF_AUTH_ANONYMOUS_ENABLED`), which would open the whole instance; that is deliberately left unset. No dashboard is public by default — marking one public is a manual, post-deploy step done via Grafana's UI (Share > Public dashboard) or its API, not something Terraform manages.
+- The OS applies security updates automatically via `unattended-upgrades` (security origin only, never `-updates`/`-proposed`) but never reboots itself, since this is a single instance with no redundancy and an unplanned reboot means real downtime for Grafana/Prometheus/Alertmanager; when a patch does need a reboot to take effect, that's surfaced as the `NodeRebootRequired` alert instead, for a human to act on when convenient.
 
 ## Teardown
 

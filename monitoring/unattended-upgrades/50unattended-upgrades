@@ -1,0 +1,32 @@
+// Overrides the package's shipped default of the same name.
+//
+// This is a single VM with no redundancy for Grafana/Prometheus/Alertmanager
+// — an unexpected reboot means real, unplanned downtime, not a graceful
+// failover. So the policy here is deliberately narrow:
+//
+//   1. Only the security pocket, never general "-updates" or "-proposed".
+//      This minimizes the chance of an unrelated package upgrade landing
+//      unattended and breaking something on a host nobody is watching in
+//      real time.
+//   2. Never reboot automatically, even if a security update needs one
+//      (e.g. a kernel or libc update). Whether a reboot is pending is
+//      instead surfaced as the node_reboot_required metric (written by
+//      monitoring/scripts/reboot-required-metric.sh) and alerted on via
+//      the NodeRebootRequired rule in monitoring/prometheus/rules/alerts.yml,
+//      so a human can pick the timing and do it deliberately.
+//
+// Written to /etc/apt/apt.conf.d/50unattended-upgrades by cloud-init;
+// delivered via terraform/main.tf's base64/templatefile plumbing, same
+// pattern as monitoring/fail2ban/jail.local.
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+};
+
+// Safety default: patch security issues, but never reboot unattended.
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Clean up dependencies that a security update orphaned, without touching
+// any other package.
+Unattended-Upgrade::Remove-Unused-Dependencies "true";

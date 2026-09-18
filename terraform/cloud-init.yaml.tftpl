@@ -7,6 +7,12 @@ packages:
   - ca-certificates
   - curl
   - gnupg
+  - unattended-upgrades
+  # Provides the /etc/kernel/postinst.d hook that actually touches
+  # /var/run/reboot-required after a kernel/libc update — not guaranteed to
+  # be present on the minimal Ubuntu server cloud image, and
+  # reboot-required-metric.sh's whole signal depends on it existing.
+  - update-notifier-common
 
 write_files:
   - path: /opt/monitoring/docker-compose.yml
@@ -64,6 +70,21 @@ write_files:
     permissions: '0644'
     content: ${fail2ban_jail_local_b64}
 
+  - path: /opt/monitoring/scripts/reboot-required-metric.sh
+    encoding: b64
+    permissions: '0755'
+    content: ${reboot_required_script_b64}
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    encoding: b64
+    permissions: '0644'
+    content: ${unattended_upgrades_auto_b64}
+
+  - path: /etc/apt/apt.conf.d/50unattended-upgrades
+    encoding: b64
+    permissions: '0644'
+    content: ${unattended_upgrades_config_b64}
+
 runcmd:
   # 2GB swapfile as an OOM safety net: containers' mem_limits alone sum to ~816Mi
   # on this 1024Mi e2-micro, leaving little headroom for host OS/daemon overhead.
@@ -92,5 +113,13 @@ runcmd:
   - usermod -aG docker ${ssh_user}
   - (crontab -l 2>/dev/null; echo "* * * * * /opt/monitoring/scripts/fail2ban-metrics.sh") | crontab -
   - /opt/monitoring/scripts/fail2ban-metrics.sh
+  # 20auto-upgrades/50unattended-upgrades (security-only, no auto-reboot — see
+  # those files under monitoring/unattended-upgrades/) are already written by
+  # this point, so this just makes sure the package's own periodic
+  # apt-daily-upgrade.timer is enabled and picks them up on this boot instead
+  # of waiting for its next scheduled window.
+  - systemctl enable --now apt-daily.timer apt-daily-upgrade.timer
+  - (crontab -l 2>/dev/null; echo "* * * * * /opt/monitoring/scripts/reboot-required-metric.sh") | crontab -
+  - /opt/monitoring/scripts/reboot-required-metric.sh
   - sleep 5
   - cd /opt/monitoring && docker compose up -d

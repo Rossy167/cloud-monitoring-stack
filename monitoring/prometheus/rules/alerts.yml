@@ -101,3 +101,19 @@ groups:
             More than 5 new sshd bans were recorded by fail2ban on
             {{ $labels.instance }} in the last 15 minutes
             (fail2ban_banned_total, emitted by fail2ban-metrics.sh).
+
+      - alert: NodeRebootRequired
+        expr: node_reboot_required == 1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "Reboot required on {{ $labels.instance }}"
+          description: >-
+            {{ $labels.instance }} has a pending update (typically a kernel
+            or libc security update applied by unattended-upgrades) that
+            needs a reboot to take effect. Automatic-Reboot is deliberately
+            disabled on this single-instance host (see
+            monitoring/unattended-upgrades/50unattended-upgrades), so this
+            needs a human to reboot it at a convenient time
+            (node_reboot_required, emitted by reboot-required-metric.sh).
