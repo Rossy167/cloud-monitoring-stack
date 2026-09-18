@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  terraform:
+    name: Terraform fmt & validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive
+        working-directory: .
+
+      - name: Create throwaway SSH public key for validation
+        run: ssh-keygen -t ed25519 -N "" -f "${{ runner.temp }}/ci-dummy-key" -C "ci-dummy-key"
+
+      - name: terraform init (local state, no backend)
+        run: terraform init -backend=false -input=false
+
+      # terraform validate only checks syntax/internal consistency of the
+      # configuration - it does not contact GCP or need real credentials.
+      # No GCP auth is configured anywhere in this workflow.
+      - name: terraform validate
+        run: |
+          terraform validate \
+            -var="project_id=ci-dummy-project" \
+            -var="ssh_user=ci-dummy-user" \
+            -var="ssh_pub_key_path=${{ runner.temp }}/ci-dummy-key.pub" \
+            -var="grafana_admin_password=ci-dummy-password"
+
+  yaml-lint:
+    name: YAML sanity check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate monitoring/**/*.yml parses as YAML
+        run: |
+          python3 -c "
+          import glob, sys, yaml
+
+          files = sorted(glob.glob('monitoring/**/*.yml', recursive=True))
+          if not files:
+              sys.exit('no YAML files found under monitoring/ - did the glob break?')
+
+          failed = False
+          for f in files:
+              try:
+                  with open(f) as fh:
+                      yaml.safe_load(fh)
+                  print(f'OK   {f}')
+              except yaml.YAMLError as exc:
+                  failed = True
+                  print(f'FAIL {f}: {exc}')
+
+          sys.exit(1 if failed else 0)
+          "
+
+  compose-render-check:
+    name: Render docker-compose template & validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Render docker-compose.yml.tftpl with a dummy password
+        run: |
+          sed 's/\${grafana_admin_password}/ci-dummy-password/' \
+            monitoring/docker-compose.yml.tftpl > /tmp/rendered-docker-compose.yml
+
+      - name: Validate rendered Compose file
+        run: docker compose -f /tmp/rendered-docker-compose.yml config -q
