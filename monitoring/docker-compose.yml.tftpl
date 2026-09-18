@@ -59,6 +59,7 @@ services:
     container_name: node-exporter
     restart: unless-stopped
     pid: host
+    mem_limit: 48m
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -72,11 +73,24 @@ services:
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     networks:
       - monitoring
+    healthcheck:
+      # node-exporter's image (prom/node-exporter) is built on busybox and,
+      # despite being a minimal/distroless-style image, does ship busybox
+      # wget at /bin/wget (verified: `docker run --entrypoint sh
+      # prom/node-exporter:v1.8.2 -c 'which wget'`). There's no dedicated
+      # /-/healthy endpoint, so a 200 from /metrics is used as the liveness
+      # signal instead.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:9100/metrics >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: cadvisor
     restart: unless-stopped
+    mem_limit: 96m
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -87,20 +101,39 @@ services:
       - /dev/kmsg
     networks:
       - monitoring
+    healthcheck:
+      # cAdvisor's image ships busybox wget at /usr/bin/wget (verified the
+      # same way as node-exporter above), and cAdvisor exposes a dedicated
+      # /healthz endpoint for exactly this purpose.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.25.0
     container_name: blackbox-exporter
     restart: unless-stopped
+    mem_limit: 48m
     volumes:
       - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
     networks:
       - monitoring
+    healthcheck:
+      # Same busybox wget as node-exporter (verified), and blackbox_exporter
+      # exposes /-/healthy the same way Prometheus/Alertmanager do.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:9115/-/healthy >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   grafana:
     image: grafana/grafana:11.2.0
     container_name: grafana
     restart: unless-stopped
+    mem_limit: 192m
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${grafana_admin_password}
@@ -111,11 +144,22 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       - monitoring
+    healthcheck:
+      # Recent grafana/grafana images ship curl (verified: `docker run
+      # --entrypoint sh grafana/grafana:11.2.0 -c 'which curl'`), and Grafana
+      # exposes its own /api/health endpoint (checks DB connectivity too),
+      # no auth required.
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   caddy:
     image: caddy:2.8-alpine
     container_name: caddy
     restart: unless-stopped
+    mem_limit: 48m
     ports:
       - "80:80"
       - "443:443"
@@ -125,3 +169,18 @@ services:
       - caddy_config:/config
     networks:
       - monitoring
+    healthcheck:
+      # The caddy:*-alpine base image does NOT include curl, but it does
+      # include busybox wget and nc (verified: `docker run --entrypoint sh
+      # caddy:2.8-alpine -c 'which curl wget nc'` -> curl not found, wget and
+      # nc found). Caddy's admin API binds to 127.0.0.1:2019 by default and
+      # responds to GET /config/ with the active JSON config, which is a
+      # real liveness/readiness signal (confirmed to return 200 against a
+      # running container). Must use 127.0.0.1, not localhost: the admin API
+      # only listens on the IPv4 loopback, and busybox wget resolves
+      # localhost to ::1 first and fails with connection refused there.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:2019/config/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
