@@ -19,10 +19,20 @@ write_files:
     permissions: '0644'
     content: ${prometheus_b64}
 
+  - path: /opt/monitoring/prometheus/rules/alerts.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${prometheus_rules_b64}
+
   - path: /opt/monitoring/blackbox/blackbox.yml
     encoding: b64
     permissions: '0644'
     content: ${blackbox_b64}
+
+  - path: /opt/monitoring/alertmanager/alertmanager.yml
+    encoding: b64
+    permissions: '0644'
+    content: ${alertmanager_b64}
 
   - path: /opt/monitoring/caddy/Caddyfile
     encoding: b64

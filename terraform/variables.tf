@@ -47,3 +47,10 @@ variable "grafana_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "alertmanager_webhook_url" {
+  description = "Webhook URL Alertmanager sends notifications to (e.g. a Slack incoming webhook, PagerDuty, or a custom endpoint). Optional — leave as the default empty string to disable notifications; Alertmanager runs with a no-op receiver and simply swallows alerts instead of failing to start. Set this in a terraform.tfvars file that you do NOT commit — see .gitignore."
+  type        = string
+  sensitive   = true
+  default     = ""
+}

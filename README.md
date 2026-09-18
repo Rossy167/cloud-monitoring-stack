@@ -15,6 +15,8 @@ Four layers, so the dashboard tells a real story instead of one server's CPU gra
 
 The same blackbox probe also yields TLS certificate expiry for free — `probe_ssl_earliest_cert_expiry` comes from any `https://` target without extra config.
 
+Prometheus evaluates a set of alert rules (`monitoring/prometheus/rules/alerts.yml`) covering target availability, host resource pressure, container restarts, blackbox probe failures, and fail2ban ban spikes, and routes firing alerts to an internal Alertmanager. Alertmanager forwards them to a webhook (`alertmanager_webhook_url` in `terraform.tfvars`) if one is configured, or is a safe no-op otherwise.
+
 ## Architecture
 
 ```mermaid

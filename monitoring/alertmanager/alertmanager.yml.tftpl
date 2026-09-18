@@ -1,0 +1,13 @@
+route:
+  receiver: default-receiver
+
+receivers:
+  # Generic webhook receiver. If alertmanager_webhook_url is left unset
+  # (empty string) in terraform.tfvars, this receiver has no configured
+  # destinations and alerts are simply swallowed — a safe no-op rather
+  # than a broken config.
+  - name: default-receiver
+%{ if alertmanager_webhook_url != "" }
+    webhook_configs:
+      - url: ${alertmanager_webhook_url}
+%{ endif }

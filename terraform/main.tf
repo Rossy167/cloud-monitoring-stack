@@ -91,7 +91,12 @@ resource "google_compute_instance" "monitoring_vm" {
     prometheus_b64 = base64encode(templatefile("${path.module}/../monitoring/prometheus/prometheus.yml.tftpl", {
       static_ip = google_compute_address.monitoring_ip.address
     }))
-    blackbox_b64   = base64encode(file("${path.module}/../monitoring/blackbox/blackbox.yml"))
+    prometheus_rules_b64 = base64encode(file("${path.module}/../monitoring/prometheus/rules/alerts.yml"))
+    blackbox_b64         = base64encode(file("${path.module}/../monitoring/blackbox/blackbox.yml"))
+
+    alertmanager_b64 = base64encode(templatefile("${path.module}/../monitoring/alertmanager/alertmanager.yml.tftpl", {
+      alertmanager_webhook_url = var.alertmanager_webhook_url
+    }))
 
     caddyfile_b64 = base64encode(templatefile("${path.module}/../monitoring/caddy/Caddyfile.tftpl", {
       static_ip = google_compute_address.monitoring_ip.address

@@ -1,0 +1,103 @@
+groups:
+  - name: availability
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Scrape target down ({{ $labels.job }}/{{ $labels.instance }})"
+          description: >-
+            Prometheus has been unable to scrape {{ $labels.job }} on
+            {{ $labels.instance }} for more than 2 minutes. This fires for
+            node_exporter, cAdvisor, blackbox_exporter, or Prometheus itself
+            going unreachable.
+
+  - name: host-resources
+    rules:
+      - alert: HighHostCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High host CPU usage on {{ $labels.instance }}"
+          description: >-
+            CPU usage on {{ $labels.instance }} has been above 85% for 10
+            minutes (current value: {{ $value | printf "%.1f" }}%).
+
+      - alert: HighHostMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High host memory usage on {{ $labels.instance }}"
+          description: >-
+            Memory usage on {{ $labels.instance }} has been above 85% for 10
+            minutes (current value: {{ $value | printf "%.1f" }}%). Notable
+            on an e2-micro with only ~1GB RAM.
+
+      - alert: RootFilesystemAlmostFull
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/", fstype!="rootfs"} / node_filesystem_size_bytes{mountpoint="/", fstype!="rootfs"})) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Root filesystem almost full on {{ $labels.instance }}"
+          description: >-
+            The root filesystem on {{ $labels.instance }} is
+            {{ $value | printf "%.1f" }}% full. The boot disk is a fixed
+            30GB (see terraform/main.tf), so this has no headroom to grow.
+
+  - name: container-health
+    rules:
+      - alert: ContainerRestartLooping
+        expr: changes(container_start_time_seconds{name!=""}[15m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} is restart-looping"
+          description: >-
+            Container {{ $labels.name }} has restarted more than twice in
+            the last 15 minutes, per cAdvisor's container_start_time_seconds.
+
+  - name: blackbox
+    rules:
+      - alert: BlackboxProbeFailing
+        expr: probe_success == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Blackbox probe failing for {{ $labels.instance }}"
+          description: >-
+            The blackbox probe of {{ $labels.instance }} has been failing
+            for more than 5 minutes.
+
+      - alert: TLSCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 14 * 24 * 3600
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS certificate for {{ $labels.instance }} expiring soon"
+          description: >-
+            The TLS certificate seen by the blackbox probe of
+            {{ $labels.instance }} expires in less than 14 days.
+
+  - name: security
+    rules:
+      - alert: Fail2banBanSpike
+        expr: increase(fail2ban_banned_total[15m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "fail2ban ban count spike on {{ $labels.instance }}"
+          description: >-
+            More than 5 new sshd bans were recorded by fail2ban on
+            {{ $labels.instance }} in the last 15 minutes
+            (fail2ban_banned_total, emitted by fail2ban-metrics.sh).
