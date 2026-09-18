@@ -33,13 +33,10 @@ jobs:
       # terraform validate only checks syntax/internal consistency of the
       # configuration - it does not contact GCP or need real credentials.
       # No GCP auth is configured anywhere in this workflow.
+      # It also does not accept -var flags (those are only valid for
+      # plan/apply/console), so no variable values are passed here.
       - name: terraform validate
-        run: |
-          terraform validate \
-            -var="project_id=ci-dummy-project" \
-            -var="ssh_user=ci-dummy-user" \
-            -var="ssh_pub_key_path=${{ runner.temp }}/ci-dummy-key.pub" \
-            -var="grafana_admin_password=ci-dummy-password"
+        run: terraform validate
 
   yaml-lint:
     name: YAML sanity check
