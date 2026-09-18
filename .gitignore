@@ -1,0 +1,11 @@
+# Terraform
+.terraform/
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# macOS
+.DS_Store
