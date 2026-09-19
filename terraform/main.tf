@@ -195,12 +195,23 @@ resource "google_compute_instance" "monitoring_vm" {
 # just this instance, not the whole project — roles/iap.tunnelResourceAccessor
 # at instance level is the minimal grant that makes the tunnel work, rather
 # than a project-wide binding that would also cover any future instances.
-resource "google_compute_instance_iam_member" "iap_tunnel_accessor" {
-  project       = var.project_id
-  zone          = var.zone
-  instance_name = google_compute_instance.monitoring_vm.name
-  role          = "roles/iap.tunnelResourceAccessor"
-  member        = "user:${var.iap_ssh_accessor_email}"
+#
+# NOTE: this must be google_iap_tunnel_instance_iam_member, not
+# google_compute_instance_iam_member. The latter is for general compute
+# instance IAM roles (instance admin, OS Login, etc.) and rejects
+# roles/iap.tunnelResourceAccessor at apply time with a 400
+# "Role ... is not supported for this resource" / invalidIamPolicy error —
+# the API's IAM policy container for IAP TCP-tunnel access on an instance is
+# a distinct resource from the compute instance's own IAM policy, and the
+# provider models that as this separate resource type. Also note the field
+# is `instance`, not `instance_name` (which is what google_compute_instance_iam_member
+# uses).
+resource "google_iap_tunnel_instance_iam_member" "iap_tunnel_accessor" {
+  project  = var.project_id
+  zone     = var.zone
+  instance = google_compute_instance.monitoring_vm.name
+  role     = "roles/iap.tunnelResourceAccessor"
+  member   = "user:${var.iap_ssh_accessor_email}"
 
   depends_on = [google_project_service.iap]
 }
