@@ -54,3 +54,15 @@ variable "alertmanager_webhook_url" {
   sensitive   = true
   default     = ""
 }
+
+variable "iap_ssh_accessor_email" {
+  description = "Google account email (e.g. \"you@gmail.com\") to grant roles/iap.tunnelResourceAccessor on the monitoring VM, so that identity can open an IAP SSH tunnel (`gcloud compute ssh --tunnel-through-iap`). Required — no default, since this is personal to whoever runs apply and must not be guessed/hardcoded. Set this in a terraform.tfvars file that you do NOT commit — see .gitignore."
+  type        = string
+}
+
+variable "tailscale_auth_key" {
+  description = "Tailscale auth key, used by the VM to join your tailnet non-interactively on first boot (generate one at https://login.tailscale.com/admin/settings/keys). Optional — leave as the default empty string to skip installing/joining Tailscale entirely; this is a second, independent SSH path alongside ssh_source_ranges/IAP, not a requirement. This is a real secret: set it in a terraform.tfvars file that you do NOT commit — see .gitignore."
+  type        = string
+  sensitive   = true
+  default     = ""
+}

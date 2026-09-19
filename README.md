@@ -70,7 +70,8 @@ Terraform enables the Compute Engine API (`compute.googleapis.com`) itself as pa
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars: fill in project_id, ssh_user, ssh_pub_key_path,
-# ssh_source_ranges, grafana_admin_password (see inline comments in the file)
+# ssh_source_ranges, grafana_admin_password, iap_ssh_accessor_email
+# (see inline comments in the file)
 
 terraform init
 terraform apply
@@ -90,6 +91,18 @@ If `grafana_url` isn't up after a few minutes:
 2. Run `sudo cloud-init status` — should say `status: done`. If it says `running`, wait longer; if `error`, continue below.
 3. If cloud-init failed, check `sudo journalctl -u google-startup-scripts.service --no-pager | tail -100` for the failing step.
 4. Check the stack itself: `cd /opt/monitoring && sudo docker compose ps` to see container status, then `sudo docker compose logs <service>` (e.g. `caddy`, `grafana`, `prometheus`) for any container that isn't `Up`/healthy.
+
+## SSH access paths
+
+The home IP used in `ssh_source_ranges` isn't the only way in — two other, IP-independent paths exist alongside it, so a dynamic-ISP IP change never locks you out:
+
+- **Direct SSH, IP-allowlisted** (`allow_ssh` firewall rule): `terraform output ssh_command`. Still requires `ssh_source_ranges` to include your current IP — this path is unchanged by the two below.
+- **IAP tunnel** (`allow_iap_ssh` firewall rule + `iap_ssh_accessor_email`): connects through Google's Identity-Aware Proxy instead of a source-IP allowlist, so it works from anywhere your `gcloud` identity can authenticate, regardless of your current IP:
+  ```bash
+  gcloud compute ssh <ssh_user>@<instance_name> --zone=<zone> --tunnel-through-iap --project=<project_id>
+  ```
+  Substitute in your `ssh_user`, `instance_name` (default `monitoring-vm`), `zone` (default `us-central1-a`), and `project_id` from `terraform.tfvars`. Only the Google identity set as `iap_ssh_accessor_email` (granted `roles/iap.tunnelResourceAccessor` on the instance) can use this.
+- **Tailscale** (optional, `tailscale_auth_key`): if set, the VM joins your tailnet on first boot. SSH in once via one of the two paths above, run `tailscale ip -4` to get its stable tailnet address, then SSH to that address going forward — it doesn't change even if the VM's public IP or your home IP does. Traffic arrives over the `tailscale0` overlay interface, not through GCP's firewall, so no firewall rule was added for it.
 
 ## Remote state
 
@@ -111,7 +124,8 @@ This uses [sslip.io](https://sslip.io) — a free service that resolves `<any-ip
 ## Security notes
 
 - `ssh_source_ranges` (`variables.tf`) has no default — Terraform will refuse to `apply` until you set it in `terraform.tfvars`, e.g. `ssh_source_ranges = ["203.0.113.4/32"]`. This forces a conscious choice of allowed CIDR ranges instead of silently opening SSH to the world.
-- Only ports 80, 443, and 22 are open at the network level; everything else (Prometheus, the exporters) is internal-only, reachable by other containers but not the public internet.
+- Port 22 is also reachable from `35.235.240.0/20` (`allow_iap_ssh`) — Google's fixed, published range for Identity-Aware Proxy TCP forwarding, not a general internet-facing allowance. Reaching the VM through it additionally requires the connecting Google identity to hold `roles/iap.tunnelResourceAccessor` on the instance, granted only to `iap_ssh_accessor_email`. See [SSH access paths](#ssh-access-paths).
+- Only ports 80, 443, and 22 (the latter from `ssh_source_ranges` and the IAP range above) are open at the network level; everything else (Prometheus, the exporters) is internal-only, reachable by other containers but not the public internet.
 - fail2ban runs on the host and bans repeated failed SSH logins automatically — its ban count is what feeds the dashboard's security panel.
 - A 2GB swapfile (low `vm.swappiness`) is provisioned on first boot as an emergency cushion against the OOM killer on this memory-constrained `e2-micro`, not as routine paging.
 - Grafana's Public Dashboards feature is enabled (`GF_FEATURE_TOGGLES_ENABLE=publicDashboards` in `monitoring/docker-compose.yml.tftpl`), which allows one specific dashboard to be marked publicly viewable, read-only, with no login. This is distinct from — and does not enable — Grafana's anonymous-access feature (`GF_AUTH_ANONYMOUS_ENABLED`), which would open the whole instance; that is deliberately left unset. No dashboard is public by default — marking one public is a manual, post-deploy step done via Grafana's UI (Share > Public dashboard) or its API, not something Terraform manages.
