@@ -16,6 +16,16 @@ resource "google_project_service" "compute" {
   disable_on_destroy = false
 }
 
+# Needed for Identity-Aware Proxy TCP forwarding (`gcloud compute ssh
+# --tunnel-through-iap`) to work at all — same rationale as compute.googleapis.com
+# above: enable it here so a fresh project doesn't need a manual
+# `gcloud services enable iap.googleapis.com` step first.
+resource "google_project_service" "iap" {
+  project            = var.project_id
+  service            = "iap.googleapis.com"
+  disable_on_destroy = false
+}
+
 # --- Networking ---
 # A dedicated VPC + subnet rather than the GCP default network, so the
 # network topology here is explicit and intentional rather than implicit.
@@ -64,6 +74,29 @@ resource "google_compute_firewall" "allow_http_https" {
   # and Let's Encrypt's HTTP-01 challenge for the sslip.io cert needs port 80
   # reachable from the internet to validate domain ownership.
   source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["monitoring-vm"]
+
+  depends_on = [google_project_service.compute]
+}
+
+# Second, independent SSH path alongside allow_ssh above — additive, not a
+# replacement. allow_ssh (IP-allowlisted via ssh_source_ranges) is untouched
+# and still required for direct SSH; this rule only opens 22 to Google's
+# fixed, published Identity-Aware Proxy source range. That range is
+# controlled by Google and does not change, so — unlike ssh_source_ranges —
+# it never needs updating when the human's home IP changes. Traffic still
+# has to pass through IAP's own auth (see the IAM binding below) before it
+# ever reaches this rule; this alone does not open SSH to the internet.
+resource "google_compute_firewall" "allow_iap_ssh" {
+  name    = "allow-iap-ssh"
+  network = google_compute_network.monitoring_vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
   target_tags   = ["monitoring-vm"]
 
   depends_on = [google_project_service.compute]
@@ -123,7 +156,8 @@ resource "google_compute_instance" "monitoring_vm" {
     ssh-keys = "${var.ssh_user}:${file(var.ssh_pub_key_path)}"
 
     user-data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
-      ssh_user = var.ssh_user
+      ssh_user           = var.ssh_user
+      tailscale_auth_key = var.tailscale_auth_key
 
       docker_compose_b64 = base64encode(templatefile("${path.module}/../monitoring/docker-compose.yml.tftpl", {
         grafana_admin_password = var.grafana_admin_password
@@ -154,4 +188,19 @@ resource "google_compute_instance" "monitoring_vm" {
       unattended_upgrades_config_b64 = base64encode(file("${path.module}/../monitoring/unattended-upgrades/50unattended-upgrades"))
     })
   }
+}
+
+# Grants the human's own Google identity permission to open an IAP tunnel to
+# this specific instance (gcloud compute ssh --tunnel-through-iap). Scoped to
+# just this instance, not the whole project — roles/iap.tunnelResourceAccessor
+# at instance level is the minimal grant that makes the tunnel work, rather
+# than a project-wide binding that would also cover any future instances.
+resource "google_compute_instance_iam_member" "iap_tunnel_accessor" {
+  project       = var.project_id
+  zone          = var.zone
+  instance_name = google_compute_instance.monitoring_vm.name
+  role          = "roles/iap.tunnelResourceAccessor"
+  member        = "user:${var.iap_ssh_accessor_email}"
+
+  depends_on = [google_project_service.iap]
 }

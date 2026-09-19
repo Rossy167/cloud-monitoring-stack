@@ -27,3 +27,18 @@ grafana_admin_password = "pick-something-here"
 # webhook, PagerDuty, custom endpoint, etc). Leave unset/commented to run
 # with a no-op receiver that just swallows alerts instead of failing to start.
 # alertmanager_webhook_url = "https://hooks.example.com/services/xxx"
+
+# Your Google account email (the one you run `gcloud auth login` as, or the
+# one you'll pick in the browser prompt from `gcloud compute ssh
+# --tunnel-through-iap`). Required — grants that identity permission to open
+# an IAP SSH tunnel to the VM, as a second, IP-independent path alongside
+# ssh_source_ranges above. No default on purpose.
+iap_ssh_accessor_email = "you@example.com"
+
+# Optional: Tailscale auth key, so the VM joins your tailnet on first boot as
+# a third, IP-independent SSH path (ssh to its stable `tailscale ip -4`
+# address instead of its public IP). Generate one at
+# https://login.tailscale.com/admin/settings/keys — a reusable, short-expiry
+# key is a reasonable default. Leave unset/commented to skip Tailscale
+# entirely; nothing else in this stack depends on it.
+# tailscale_auth_key = "tskey-auth-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

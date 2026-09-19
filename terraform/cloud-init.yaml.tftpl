@@ -123,3 +123,20 @@ runcmd:
   - /opt/monitoring/scripts/reboot-required-metric.sh
   - sleep 5
   - cd /opt/monitoring && docker compose up -d
+  # Tailscale: a third, IP-independent SSH path (over the tailscale0 overlay
+  # interface, not GCP's firewall) alongside the IP-allowlisted allow_ssh rule
+  # and the IAP tunnel. Entirely optional — skipped if tailscale_auth_key is
+  # left empty (the default), so this is additive and never blocks first boot
+  # for anyone who hasn't generated a key yet. Guarded so a re-triggered
+  # runcmd (or a reboot re-running cloud-init) is a no-op instead of erroring:
+  # install only if the binary isn't already present, join only if not
+  # already authenticated to a tailnet.
+  - |
+    if [ -n "${tailscale_auth_key}" ]; then
+      if ! command -v tailscale >/dev/null 2>&1; then
+        curl -fsSL https://tailscale.com/install.sh | sh
+      fi
+      if ! tailscale ip -4 >/dev/null 2>&1; then
+        tailscale up --authkey="${tailscale_auth_key}"
+      fi
+    fi
