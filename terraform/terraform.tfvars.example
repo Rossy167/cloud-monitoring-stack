@@ -41,4 +41,4 @@ iap_ssh_accessor_email = "you@example.com"
 # https://login.tailscale.com/admin/settings/keys — a reusable, short-expiry
 # key is a reasonable default. Leave unset/commented to skip Tailscale
 # entirely; nothing else in this stack depends on it.
-# tailscale_auth_key = "tskey-auth-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# tailscale_auth_key = "<paste the key generated above, starts with tskey-auth->"
