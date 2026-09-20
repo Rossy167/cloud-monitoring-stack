@@ -119,6 +119,10 @@ One-time setup, before your first `terraform init`:
 
 This only needs to be done once (or again if you ever re-run init with a different bucket). This GCS bucket is the one piece of this project's cost that falls outside GCP's Always Free tier — typically a few cents a month for a state file this small.
 
+## Disaster recovery
+
+There's no automated backup of the VM's disk — a corrupted boot disk or a deleted instance means rebuilding from Terraform rather than restoring a snapshot. This is a deliberate omission, not an oversight: scheduled disk snapshots are billed separately from the Always Free tier's disk allowance, and the whole point of this project is staying within it. Since the entire stack is reproducible from this repo (`terraform apply` recreates everything except Grafana's own internal state — dashboards, users, the public-dashboard toggle — none of which is version-controlled), the practical recovery path is redeploying rather than restoring.
+
 ## On HTTPS without a domain
 
 This uses [sslip.io](https://sslip.io) — a free service that resolves `<any-ip>.sslip.io` to that literal IP. Since it's real, publicly resolvable DNS, Caddy can get you a genuine Let's Encrypt certificate for it automatically. No domain purchase needed to get real HTTPS. If you later buy a domain, swap it into `caddy/Caddyfile.tftpl` and re-apply.
