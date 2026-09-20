@@ -86,7 +86,7 @@ Two extra SSH paths exist alongside `ssh_source_ranges`, specifically so a home-
 gcloud compute ssh <ssh_user>@<instance_name> --zone=<zone> --tunnel-through-iap --project=<project_id>
 ```
 
-This works only for the identity you set as `iap_ssh_accessor_email`. If it fails with a permission error, double-check `gcloud auth list` shows you're logged in as that exact account, and that `terraform apply` completed the `google_compute_instance_iam_member.iap_tunnel_accessor` resource.
+This works only for the identity you set as `iap_ssh_accessor_email`. If it fails with a permission error, double-check `gcloud auth list` shows you're logged in as that exact account, and that `terraform apply` completed the `google_iap_tunnel_instance_iam_member.iap_tunnel_accessor` resource.
 
 **Tailscale** (only if you set `tailscale_auth_key`):
 
